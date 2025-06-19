@@ -323,7 +323,7 @@
         }
         /* Estilos específicos para impresión */
         @page {
-            size: letter portrait;
+            size: A4;
             margin: 1.5cm;
         }
         @media print {
@@ -331,17 +331,24 @@
                 background-color: white;
                 padding: 0;
                 margin: 0;
+                font-size: 11pt;
             }
             .container {
                 max-width: 100%;
+                width: 100%;
+                margin: 0;
+                padding: 0;
             }
             .card {
                 break-inside: avoid;
                 box-shadow: none;
                 border: 1px solid #ddd;
+                page-break-inside: avoid;
+                margin-bottom: 15mm;
+                width: 100%;
             }
-            .filters, .no-print {
-                display: none;
+            .filters, .no-print, .btn-group, #loader, .alert {
+                display: none !important;
             }
             .dashboard {
                 display: block;
@@ -350,10 +357,22 @@
                 width: 100%;
             }
             .chart-container {
-                height: 200px;
+                height: 130mm;
+                max-height: 130mm;
+                width: 100%;
+                page-break-inside: avoid;
+            }
+            header {
+                margin-bottom: 15mm;
+                page-break-after: avoid;
+            }
+            h1, h2 {
+                page-break-after: avoid;
             }
             table {
                 font-size: 9pt;
+                page-break-inside: avoid;
+                width: 100%;
             }
             th, td {
                 padding: 5px 8px;
@@ -361,6 +380,49 @@
             .chart-analysis, .conclusion-card, .recommendation-item {
                 border: 1px solid #ddd;
                 border-left-width: 4px;
+                page-break-inside: avoid;
+            }
+            .conclusions-section {
+                page-break-before: always;
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+            .recommendation-item {
+                page-break-inside: avoid;
+            }
+            .applied-filters {
+                margin-bottom: 10mm;
+                background-color: transparent;
+                border: 1px solid #ddd;
+                padding: 5mm;
+            }
+            canvas {
+                max-width: 100% !important;
+                height: auto !important;
+            }
+            .card:first-of-type {
+                page-break-after: avoid;
+            }
+            .stat-box {
+                break-inside: avoid;
+            }
+            .stats-container {
+                page-break-inside: avoid;
+            }
+            /* Ajuste específico para tablas de estudiantes */
+            #engineering-high-risk, #health-high-risk, #humanities-high-risk,
+            #campus-stats {
+                font-size: 8pt;
+            }
+            #engineering-high-risk th, #health-high-risk th, #humanities-high-risk th,
+            #campus-stats th, #engineering-high-risk td, #health-high-risk td, 
+            #humanities-high-risk td, #campus-stats td {
+                padding: 3px 4px;
+            }
+            /* Asegurar que los análisis se impriman completos */
+            p {
+                orphans: 3;
+                widows: 3;
             }
         }
         @media (max-width: 768px) {
@@ -425,7 +487,7 @@
             <div class="btn-group">
                 <button id="process-button" class="btn btn-primary">Procesar Datos</button>
                 <button id="apply-filters" class="btn btn-warning">Aplicar Filtros</button>
-                <button id="generate-pdf" class="btn btn-success">Generar Informe PDF</button>
+                <button id="print-report" class="btn btn-success">Imprimir Informe</button>
             </div>
         </div>
         
@@ -723,9 +785,6 @@
     <!-- Scripts necesarios -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <script>
         // Objeto para almacenar las instancias de gráficos
         const charts = {};
@@ -2249,294 +2308,35 @@
             updateAllVisualizations();
         }
         
-        // Función para generar el PDF con alta calidad
-        function generatePDF() {
+        // Función para imprimir el informe
+        function printReport() {
             // Mostrar loader
             document.getElementById('loader').style.display = 'block';
             
-            // Ocultar botones y elementos no deseados en el PDF
-            const buttonsContainer = document.querySelector('.filters');
+            // Ajustar la visualización de filtros aplicados para la impresión
             const appliedFiltersDiv = document.getElementById('applied-filters');
-            buttonsContainer.style.display = 'none';
+            const originalDisplay = appliedFiltersDiv.style.display;
             
-            // Conservar visibilidad original para restaurar después
-            const originalAppliedFiltersDisplay = appliedFiltersDiv.style.display;
-            // Mostrar filtros aplicados en el PDF
-            appliedFiltersDiv.style.display = globalData.appliedFilters.campus !== 'todos' || 
-                                              globalData.appliedFilters.faculty !== 'todos' || 
-                                              globalData.appliedFilters.riskType !== 'todos' ? 'block' : 'none';
-            
-            // Crear objeto jsPDF
-            const { jsPDF } = window.jspdf;
-            
-            // Crear el PDF con orientación vertical inicial
-            const doc = new jsPDF('portrait', 'mm', 'letter');
-            
-            // Título del documento y fecha
-            doc.setFontSize(20);
-            doc.setTextColor(44, 62, 80); // Color oscuro para el título
-            doc.text('INFORME ANALÍTICO DE RETENCIÓN ESTUDIANTIL', 105, 20, { align: 'center' });
-            
-            doc.setFontSize(14);
-            doc.setTextColor(52, 152, 219); // Color azul para el subtítulo
-            doc.text('Universidad Autónoma de Chile', 105, 30, { align: 'center' });
-            
-            doc.setFontSize(12);
-            doc.setTextColor(0, 0, 0); // Color negro para el texto
-            doc.text('Fecha de generación: ' + new Date().toLocaleDateString(), 105, 40, { align: 'center' });
-            
-            // Separador
-            doc.setDrawColor(52, 152, 219);
-            doc.setLineWidth(0.5);
-            doc.line(20, 45, 190, 45);
-            
-            // Agregar información de filtros aplicados si existen
-            let yPosition = 55;
-            
+            // Mostrar los filtros aplicados si existen
             if (globalData.appliedFilters.campus !== 'todos' || 
                 globalData.appliedFilters.faculty !== 'todos' || 
                 globalData.appliedFilters.riskType !== 'todos') {
-                
-                doc.setFontSize(14);
-                doc.setTextColor(44, 62, 80);
-                doc.text('Filtros aplicados:', 20, yPosition);
-                yPosition += 8;
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                
-                if (globalData.appliedFilters.campus !== 'todos') {
-                    doc.text(`• Sede: ${globalData.appliedFilters.campus}`, 25, yPosition);
-                    yPosition += 7;
-                }
-                
-                if (globalData.appliedFilters.faculty !== 'todos') {
-                    doc.text(`• Facultad: ${globalData.appliedFilters.faculty}`, 25, yPosition);
-                    yPosition += 7;
-                }
-                
-                if (globalData.appliedFilters.riskType !== 'todos') {
-                    doc.text(`• Tipo de Riesgo: ${globalData.appliedFilters.riskType}`, 25, yPosition);
-                    yPosition += 7;
-                }
-                
-                yPosition += 5;
+                appliedFiltersDiv.style.display = 'block';
             }
             
-            // Capturar secciones del dashboard
-            const dashboardSections = document.querySelectorAll('.card');
-            const conclusionsSection = document.querySelector('.conclusions-section');
-            let currentPage = 1;
-            
-            // Agregar número de página
-            const addPageNumber = (orientation = 'portrait') => {
-                doc.setFontSize(10);
-                doc.setTextColor(100, 100, 100);
-                if (orientation === 'portrait') {
-                    doc.text(`Página ${currentPage}`, 180, 275);
-                } else {
-                    doc.text(`Página ${currentPage}`, 250, 180);
-                }
-            };
-            
-            // Añadir nueva página (vertical por defecto)
-            const addNewPage = (orientation = 'portrait') => {
-                doc.addPage('letter', orientation);
-                currentPage++;
-                yPosition = 20;
-                addPageNumber(orientation);
-            };
-            
-            // Agregar número de página a la primera página
-            addPageNumber();
-            
-            // Función para dividir las secciones en categorías
-            function categorizeSections() {
-                const graphSections = [];
-                const tableSections = [];
+            // Dar tiempo para que se actualice el DOM antes de imprimir
+            setTimeout(() => {
+                // Ocultar el loader
+                document.getElementById('loader').style.display = 'none';
                 
-                dashboardSections.forEach(section => {
-                    // Si contiene una tabla, es una sección de tabla
-                    if (section.querySelector('table')) {
-                        tableSections.push(section);
-                    } else {
-                        graphSections.push(section);
-                    }
-                });
+                // Llamar a la función de impresión del navegador
+                window.print();
                 
-                return { graphSections, tableSections };
-            }
-            
-            const { graphSections, tableSections } = categorizeSections();
-            
-            // Procesar cada sección de gráfico con alta calidad
-            const processGraphSections = async () => {
-                for (const section of graphSections) {
-                    const title = section.querySelector('h2').textContent;
-                    const analysis = section.querySelector('.chart-analysis')?.textContent || '';
-                    
-                    // Capturar el gráfico con alta calidad
-                    const canvas = await html2canvas(section, {
-                        scale: 3, // Alta resolución
-                        useCORS: true,
-                        logging: false,
-                        backgroundColor: '#ffffff'
-                    });
-                    
-                    const imgData = canvas.toDataURL('image/png');
-                    
-                    // Determinar dimensiones óptimas para la página
-                    const imgWidth = 170;
-                    const imgHeight = Math.min((canvas.height * imgWidth) / canvas.width, 180);
-                    
-                    // Verificar si hay espacio suficiente en la página actual
-                    if (yPosition + imgHeight + 30 > 260) {
-                        addNewPage('portrait');
-                    }
-                    
-                    // Agregar título
-                    doc.setFontSize(14);
-                    doc.setTextColor(52, 152, 219);
-                    doc.text(title, 20, yPosition);
-                    yPosition += 10;
-                    
-                    // Agregar imagen
-                    doc.addImage(imgData, 'PNG', 20, yPosition, imgWidth, imgHeight);
-                    yPosition += imgHeight + 5;
-                    
-                    // Agregar análisis si está disponible
-                    if (analysis && analysis.trim().length > 0) {
-                        doc.setFontSize(10);
-                        doc.setTextColor(0, 0, 0);
-                        
-                        // Quitar "Análisis:" del texto
-                        const analysisText = analysis.replace('Análisis:', '').trim();
-                        
-                        // Dividir el texto en líneas para que quepa en la página
-                        const lines = doc.splitTextToSize(analysisText, 170);
-                        doc.text(lines, 20, yPosition);
-                        yPosition += lines.length * 5 + 15;
-                    } else {
-                        yPosition += 10;
-                    }
-                }
-            };
-            
-            // Procesar cada sección de tabla con alta calidad en formato horizontal
-            const processTableSections = async () => {
-                for (const section of tableSections) {
-                    // Cambiar a orientación horizontal para las tablas
-                    addNewPage('landscape');
-                    
-                    const title = section.querySelector('h2').textContent;
-                    const analysis = section.querySelector('.chart-analysis')?.textContent || '';
-                    
-                    // Capturar la tabla con alta calidad
-                    const canvas = await html2canvas(section, {
-                        scale: 2,
-                        useCORS: true,
-                        logging: false,
-                        backgroundColor: '#ffffff'
-                    });
-                    
-                    const imgData = canvas.toDataURL('image/png');
-                    
-                    // Dimensiones óptimas para la página horizontal
-                    const imgWidth = 240;
-                    const imgHeight = Math.min((canvas.height * imgWidth) / canvas.width, 140);
-                    
-                    // Agregar título
-                    doc.setFontSize(14);
-                    doc.setTextColor(52, 152, 219);
-                    doc.text(title, 20, yPosition);
-                    yPosition += 10;
-                    
-                    // Agregar imagen
-                    doc.addImage(imgData, 'PNG', 20, yPosition, imgWidth, imgHeight);
-                    yPosition += imgHeight + 5;
-                    
-                    // Agregar análisis si está disponible
-                    if (analysis && analysis.trim().length > 0) {
-                        doc.setFontSize(10);
-                        doc.setTextColor(0, 0, 0);
-                        
-                        // Quitar "Análisis:" del texto
-                        const analysisText = analysis.replace('Análisis:', '').trim();
-                        
-                        // Dividir el texto en líneas para que quepa en la página
-                        const lines = doc.splitTextToSize(analysisText, 240);
-                        doc.text(lines, 20, yPosition);
-                        yPosition += lines.length * 5 + 10;
-                    } else {
-                        yPosition += 10;
-                    }
-                }
-            };
-            
-            // Procesar sección de conclusiones
-            const processConclusionsSection = async () => {
-                // Cambiar a orientación vertical para las conclusiones
-                addNewPage('portrait');
-                
-                const title = conclusionsSection.querySelector('h2').textContent;
-                
-                // Capturar la sección de conclusiones con alta calidad
-                const canvas = await html2canvas(conclusionsSection, {
-                    scale: 2,
-                    useCORS: true,
-                    logging: false,
-                    backgroundColor: '#ffffff'
-                });
-                
-                const imgData = canvas.toDataURL('image/png');
-                
-                // Dimensiones óptimas para la página vertical
-                const imgWidth = 170;
-                const imgHeight = Math.min((canvas.height * imgWidth) / canvas.width, 220);
-                
-                // Agregar título
-                doc.setFontSize(16);
-                doc.setTextColor(44, 62, 80);
-                doc.text(title, 105, yPosition, { align: 'center' });
-                yPosition += 10;
-                
-                // Agregar imagen
-                doc.addImage(imgData, 'PNG', 20, yPosition, imgWidth, imgHeight);
-            };
-            
-            // Procesar todas las secciones y generar el PDF
-            Promise.resolve()
-                .then(processGraphSections)
-                .then(processTableSections)
-                .then(processConclusionsSection)
-                .then(() => {
-                    // Restaurar elementos ocultos
-                    buttonsContainer.style.display = 'flex';
-                    appliedFiltersDiv.style.display = originalAppliedFiltersDisplay;
-                    document.getElementById('loader').style.display = 'none';
-                    
-                    // Generar nombre de archivo basado en filtros
-                    const filename = `Informe_Retencion_UAC${
-                        globalData.appliedFilters.campus !== 'todos' ? '_' + globalData.appliedFilters.campus.replace(/\s+/g, '_') : ''
-                    }${
-                        globalData.appliedFilters.faculty !== 'todos' ? '_' + globalData.appliedFilters.faculty.replace(/\s+/g, '_').substring(0, 10) : ''
-                    }${
-                        globalData.appliedFilters.riskType !== 'todos' ? '_' + globalData.appliedFilters.riskType.replace(/\s+/g, '_').substring(0, 10) : ''
-                    }.pdf`;
-                    
-                    // Descargar el PDF
-                    doc.save(filename);
-                })
-                .catch(error => {
-                    console.error('Error al generar el PDF:', error);
-                    buttonsContainer.style.display = 'flex';
-                    appliedFiltersDiv.style.display = originalAppliedFiltersDisplay;
-                    document.getElementById('loader').style.display = 'none';
-                    document.getElementById('error-alert').style.display = 'block';
-                    setTimeout(() => {
-                        document.getElementById('error-alert').style.display = 'none';
-                    }, 3000);
-                });
+                // Restaurar la visualización original después de imprimir
+                setTimeout(() => {
+                    appliedFiltersDiv.style.display = originalDisplay;
+                }, 1000);
+            }, 500);
         }
         
         // Evento al cargar la página
@@ -2567,8 +2367,8 @@
             // Evento para aplicar filtros
             document.getElementById('apply-filters').addEventListener('click', applyFilters);
             
-            // Evento para generar el PDF
-            document.getElementById('generate-pdf').addEventListener('click', generatePDF);
+            // Evento para imprimir el informe
+            document.getElementById('print-report').addEventListener('click', printReport);
         });
     </script>
 </body>
